@@ -12,6 +12,7 @@
 
 #include <iostream>
 #include <vector>
+#include <array>
 #include <optional>
 
 #include <glm/glm.hpp>
@@ -41,6 +42,36 @@ namespace compute
 
 namespace triangle
 {
+	struct Vertex {
+		glm::vec2 pos;
+		glm::vec3 color;
+
+		static VkVertexInputBindingDescription getBindingDescription() {
+			VkVertexInputBindingDescription bindingDescription{};
+			bindingDescription.binding = 0;
+			bindingDescription.stride = sizeof(Vertex);
+			bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+			return bindingDescription;
+		}
+
+		static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+			std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+
+			attributeDescriptions[0].binding = 0;
+			attributeDescriptions[0].location = 0;
+			attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+			attributeDescriptions[1].binding = 0;
+			attributeDescriptions[1].location = 1;
+			attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+			attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+			return attributeDescriptions;
+		}
+	};
+
 	//index of queue family
 	struct QueueFamilyIndices {
 		std::optional<uint32_t> graphicsFamily;//物理设备对应的队列族
@@ -91,6 +122,7 @@ private:
 	void renderPass_create(void);
 	void graphicsPipline_create(void);
 	void framebuffer_create(void);
+	void vertexBuffer_create(void);
 	void commandPool_create(void);
 	void commondBuffers_create(void);
 	void syncObjects_create(void);
@@ -124,6 +156,9 @@ private:
 	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
 	void DestoryDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 
+	//vertex input
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMem;
 
 	//handle
 	GLFWwindow* window;

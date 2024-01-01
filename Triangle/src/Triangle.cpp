@@ -12,6 +12,13 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif // NDEBUG
 
+
+const std::vector<Vertex> vertices = {
+	{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
+
 //check whether the physical device support the required extensions 
 const std::vector<const char*> requireExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -111,14 +118,17 @@ void Triangle::vulkan_init(void)
 	logicalDevice_create();
 	swapChain_create();
 	imageView_create();
+    renderPass_create();
 
 	commandPool_create();
 	commondBuffers_create();
 
 	createSSBO();
-
-	renderPass_create();
+	createCompDescSetLayout();
+	vertexBuffer_create();
+	
 	graphicsPipline_create();
+	computePipeline_create();
 	framebuffer_create();
 	syncObjects_create();
 }
@@ -271,6 +281,8 @@ void Triangle::clean_up(void)
 		vkDestroyBuffer(logicalDevice, shaderStorageBuffer[i], nullptr);
 		vkFreeMemory(logicalDevice, shaderStorageBufferMem[i], nullptr);
 	}
+	vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
+	vkFreeMemory(logicalDevice, vertexBufferMem, nullptr);
 
 	vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
 
@@ -865,7 +877,7 @@ void Triangle::createCompDescSetLayout(void)
 
 void Triangle::computePipeline_create(void)
 {
-	auto computeShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/Triangle/src/spvs/comp.spv");
+	auto computeShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/comp.spv");
 
 	VkShaderModule computeShaderModule = createShaderModule(computeShaderCode);
 
@@ -896,8 +908,8 @@ void Triangle::computePipeline_create(void)
 
 void Triangle::graphicsPipline_create(void)
 {
-	auto vertexShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/Triangle/src/spvs/vert.spv");
-	auto fragShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/Triangle/src/spvs/frag.spv");
+	auto vertexShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/vert.spv");
+	auto fragShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/frag.spv");
 
 	VkShaderModule vertShaderModule = createShaderModule(vertexShaderCode);
 	VkShaderModule fragmentShaderModule = createShaderModule(fragShaderCode);
@@ -918,10 +930,15 @@ void Triangle::graphicsPipline_create(void)
 	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 	
 	//step 2:prepare Vertex Input State
+	auto bindingDesc = Vertex::getBindingDescription();
+	auto attributeDesc = Vertex::getAttributeDescriptions();
+
 	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo{};
 	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputCreateInfo.vertexBindingDescriptionCount = 0;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 0;
+	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
+	vertexInputCreateInfo.pVertexBindingDescriptions = &bindingDesc;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 2;
+	vertexInputCreateInfo.pVertexAttributeDescriptions = attributeDesc.data();
 
 	//step 3:input assembly 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo{};
@@ -1036,6 +1053,19 @@ void Triangle::graphicsPipline_create(void)
 	vkDestroyShaderModule(logicalDevice, fragmentShaderModule, nullptr);
 }
 
+void Triangle::vertexBuffer_create(void)
+{
+	auto bufferSize = sizeof(vertices[0]) * vertices.size();
+	createBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, vertexBuffer, vertexBufferMem);
+
+	//load data
+	void* data;
+	vkMapMemory(logicalDevice, vertexBufferMem, 0, bufferSize, 0, &data);
+	memcpy(data, vertices.data(), bufferSize);
+	vkUnmapMemory(logicalDevice, vertexBufferMem);
+}
+
 void Triangle::framebuffer_create(void)
 {
 	swapChainFramebuffers.resize(swapChainImageViews.size());
@@ -1119,6 +1149,10 @@ void Triangle::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 	scissor.offset = { 0, 0 };
 	scissor.extent = swapChainExtent;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+	VkBuffer vertexBuffers[] = { vertexBuffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
 	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
