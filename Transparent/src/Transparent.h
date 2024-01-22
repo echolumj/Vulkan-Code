@@ -23,7 +23,7 @@
 #define   HEIGHT   600 
 
 const int PARTICLE_NUM = 2000;
-const int MAX_FRAMES_IN_FLIGHT = 2;
+const int MAX_FRAMES_IN_FLIGHT = 1;
 
 typedef glm::vec2 vec2;
 typedef glm::vec3 vec3;
@@ -45,6 +45,30 @@ namespace transparent
 		glm::mat4 model;
 		glm::mat4 view;
 		glm::mat4 proj;
+	};
+
+	struct SVertex {
+		glm::vec2 pos;
+
+		static VkVertexInputBindingDescription getBindingDescription() {
+			VkVertexInputBindingDescription bindingDescription{};
+			bindingDescription.binding = 0;
+			bindingDescription.stride = sizeof(SVertex);
+			bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+			return bindingDescription;
+		}
+
+		static std::array<VkVertexInputAttributeDescription, 1> getAttributeDescriptions() {
+			std::array<VkVertexInputAttributeDescription, 1> attributeDescriptions{};
+
+			attributeDescriptions[0].binding = 0;
+			attributeDescriptions[0].location = 0;
+			attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[0].offset = offsetof(SVertex, pos);
+
+			return attributeDescriptions;
+		}
 	};
 
 	struct Vertex {
@@ -129,11 +153,14 @@ private:
 	void logicalDevice_create(void);
 	void swapChain_create(void);
 	void imageView_create(void);
+	void images_create(void);//about textures and attachment
 
 	void renderPass_create(void);
-	void graphicsPipline_create(void);
+	void graphicsPiplinePass0_create(void);
+	void graphicsPiplinePass1_create(void);
 	void framebuffer_create(void);
-	void vertexAndIndiceBuffer_create(void);
+	void vertexBuffer_create(void); //pass1
+	void vertexAndIndiceBuffer_create(void); //pass0
 	void commandPool_create(void);
 	void commondBuffers_create(void);
 	void syncObjects_create(void);
@@ -155,6 +182,9 @@ private:
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+		VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectMask, VkImageView& imageView);
 
 	//////////////////////Auxiliary function///////////////////////////////////
 	std::vector<const char*> getRequiredExtensions(void);
@@ -175,9 +205,11 @@ private:
 
 	//vertex input
 	VkBuffer vertexBuffer;
+	VkBuffer vertexSquareBuffer;
 	VkBuffer indiceBuffer;
 	VkDeviceMemory vertexBufferMem;
 	VkDeviceMemory indiceBufferMem;
+	VkDeviceMemory vertexSquareBufferMem;
 
 	std::vector <VkBuffer> uniformBuffers;
 	std::vector <VkDeviceMemory> uniformBufferMems;
@@ -197,10 +229,12 @@ private:
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 
-	VkPipelineLayout pipelineLayout;;
+	VkPipelineLayout pipelineLayoutPass0;
+	VkPipelineLayout pipelineLayoutPass1;
 	VkRenderPass renderPass;
-	VkPipeline graphicsPipeline;
-	std::vector<VkFramebuffer> swapChainFramebuffers;
+	VkPipeline pipelinePass_0;
+	VkPipeline pipelinePass_1;
+	std::vector<VkFramebuffer> framebuffers;
 
 	VkCommandPool commandPool;
 	std::vector<VkCommandBuffer> commandBuffers;
@@ -226,9 +260,19 @@ private:
 
 	VkDescriptorSetLayout descSetLayout;
 	VkDescriptorPool descriptorPool;
+	VkDescriptorPool descriptorPoolPass1;
 	std::vector<VkDescriptorSet> descriptorSets;
+	VkDescriptorSetLayout descSetLayoutPass1;
+	std::vector<VkDescriptorSet> descriptorSetsPass1;
 
 	VkPipelineLayout compPipelineLayout;
 	VkPipeline compPipeline;
+
+	std::vector<VkImage> alphaCountImage;
+	std::vector<VkDeviceMemory> alphaCountImageMem;
+	std::vector<VkImageView> alphaCountImageView;
+	std::vector<VkImage> blendImage;
+	std::vector<VkDeviceMemory> blendImageMem;
+	std::vector<VkImageView> blendImageView;
 };
 
