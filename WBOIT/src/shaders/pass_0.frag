@@ -7,6 +7,7 @@ layout(location = 0) out vec4 outColor;
 layout(location = 1) out float number;
 
 void main() {
-	outColor = vec4(fragColor, 0.5);
-    number = 1.0;
+	float alpha = 0.5;
+	outColor = vec4(fragColor * alpha, alpha);
+    number = 1.0 - alpha;
 }
