@@ -10,5 +10,5 @@ void main() {
     vec3 nearColor = subpassLoad(blendImage).rgb / subpassLoad(blendImage).a;
 	float alpha = subpassLoad(number).r;
 	nearColor = nearColor * (1.0f - alpha);
-	outColor = vec4(nearColor + alpha * vec3(0.0), 1.0);
+	outColor = vec4(nearColor, 1.0);
 }

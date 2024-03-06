@@ -1601,7 +1601,7 @@ void Transparent::vertexBuffer_create(void)
 
 void Transparent::vertexAndIndiceBuffer_create(void)
 {
-	Object* ob = new Object("E:/2_GITHUB/Vulkan-Code/Transparent/data/bunny.obj");
+	Object* ob = new Object("E:/2_GITHUB/Vulkan-Code/Transparent/data/room.obj");
 	auto verticesIn = ob->getVertices();
 	auto indices = ob->getIndices();
 
