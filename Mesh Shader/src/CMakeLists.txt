@@ -14,7 +14,7 @@ include_directories(
 
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/*.cpp)
 file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/src/*.h)
-file(GLOB SHADERS ${SHADER_DIR}/*.vert ${SHADER_DIR}/*.frag ${SHADER_DIR}/*.comp)
+file(GLOB SHADERS ${SHADER_DIR}/*.vert ${SHADER_DIR}/*.frag ${SHADER_DIR}/*.comp ${SHADER_DIR}/*.task ${SHADER_DIR}/*.mesh)
 
 source_group("shaders" FILES ${SHADERS})
 

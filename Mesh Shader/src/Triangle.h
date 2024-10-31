@@ -207,6 +207,6 @@ private:
 	VkPipeline compPipeline;
 
 	//mesh shader
-	PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT;
+	PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT = VK_NULL_HANDLE;
 };
 

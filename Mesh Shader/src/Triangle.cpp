@@ -23,8 +23,8 @@ const std::vector<Vertex> vertices = {
 const std::vector<const char*> requireExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	VK_EXT_MESH_SHADER_EXTENSION_NAME,
-	VK_KHR_SPIRV_1_4_EXTENSION_NAME,
-	VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME
+	VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+	VK_KHR_SPIRV_1_4_EXTENSION_NAME
 };
 
 const std::vector<const char*> validationLayers = {
@@ -466,11 +466,11 @@ QueueFamilyIndices Triangle::findQueueFamilies(VkPhysicalDevice devices)
 
 bool Triangle::isDeviceSuitable(VkPhysicalDevice devices)
 {
-	//VkPhysicalDeviceProperties property;
-	//VkPhysicalDeviceFeatures feature;
+	VkPhysicalDeviceProperties property;
+	VkPhysicalDeviceFeatures feature;
 
-	//vkGetPhysicalDeviceProperties(devices, &property);
-	//vkGetPhysicalDeviceFeatures(devices, &feature);
+	vkGetPhysicalDeviceProperties(devices, &property);
+	vkGetPhysicalDeviceFeatures(devices, &feature);
 
 	// 独显 + geometryShader
 	//return (property.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) && feature.geometryShader;
@@ -922,15 +922,19 @@ void Triangle::graphicsPipline_create(void)
 {
 	auto vertexShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/vert.spv");
 	auto fragShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/frag.spv");
+	auto meshShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/mesh.spv");
+	auto taskShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/task.spv");
 
-	VkShaderModule vertShaderModule = createShaderModule(vertexShaderCode);
+	//VkShaderModule vertShaderModule = createShaderModule(vertexShaderCode);
 	VkShaderModule fragmentShaderModule = createShaderModule(fragShaderCode);
+	VkShaderModule meshShaderModule = createShaderModule(meshShaderCode);
+	VkShaderModule taskShaderModule = createShaderModule(taskShaderCode);
 
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-	vertShaderStageInfo.module = vertShaderModule;
-	vertShaderStageInfo.pName = "main"; // entry points
+	//VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+	//vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	//vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+	//vertShaderStageInfo.module = vertShaderModule;
+	//vertShaderStageInfo.pName = "main"; // entry points
 
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
 	fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -938,25 +942,37 @@ void Triangle::graphicsPipline_create(void)
 	fragShaderStageInfo.module = fragmentShaderModule;
 	fragShaderStageInfo.pName = "main";
 
+	VkPipelineShaderStageCreateInfo meshShaderStageInfo{};
+	meshShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	meshShaderStageInfo.stage = VK_SHADER_STAGE_MESH_BIT_EXT;
+	meshShaderStageInfo.module = meshShaderModule;
+	meshShaderStageInfo.pName = "main";
+
+	VkPipelineShaderStageCreateInfo taskShaderStageInfo{};
+	taskShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	taskShaderStageInfo.stage = VK_SHADER_STAGE_TASK_BIT_EXT;
+	taskShaderStageInfo.module = taskShaderModule;
+	taskShaderStageInfo.pName = "main";
+
 	//step 1:prepare Shader Stage
-	VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+	VkPipelineShaderStageCreateInfo shaderStages[] = { meshShaderStageInfo, taskShaderStageInfo, fragShaderStageInfo };
 	
 	//step 2:prepare Vertex Input State
 	auto bindingDesc = Vertex::getBindingDescription();
 	auto attributeDesc = Vertex::getAttributeDescriptions();
 
-	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo{};
-	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
-	vertexInputCreateInfo.pVertexBindingDescriptions = &bindingDesc;
-	vertexInputCreateInfo.vertexAttributeDescriptionCount = 2;
-	vertexInputCreateInfo.pVertexAttributeDescriptions = attributeDesc.data();
+	//VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo{};
+	//vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	//vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
+	//vertexInputCreateInfo.pVertexBindingDescriptions = &bindingDesc;
+	//vertexInputCreateInfo.vertexAttributeDescriptionCount = 2;
+	//vertexInputCreateInfo.pVertexAttributeDescriptions = attributeDesc.data();
 
-	//step 3:input assembly 
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo{};
-	inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	inputAssemblyCreateInfo.primitiveRestartEnable = VK_FALSE;
+	////step 3:input assembly 
+	//VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo{};
+	//inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	//inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	//inputAssemblyCreateInfo.primitiveRestartEnable = VK_FALSE;
 
 	//step 4:Viewports and scissors
 	VkViewport viewport{};
@@ -1038,10 +1054,10 @@ void Triangle::graphicsPipline_create(void)
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = 2;//可编程的stage number
+	pipelineInfo.stageCount = 3;//可编程的stage number
 	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.pVertexInputState = &vertexInputCreateInfo;
-	pipelineInfo.pInputAssemblyState = &inputAssemblyCreateInfo;
+	pipelineInfo.pVertexInputState = nullptr;//&vertexInputCreateInfo;
+	pipelineInfo.pInputAssemblyState = nullptr; //&inputAssemblyCreateInfo;
 	pipelineInfo.pViewportState = &viewportCreateInfo;
 	pipelineInfo.pRasterizationState = &rasterCreateInfo;
 	pipelineInfo.pMultisampleState = &multisampleCreateInfo;
@@ -1061,8 +1077,10 @@ void Triangle::graphicsPipline_create(void)
 	}
 
 	//destroy the shader modules again as soon as pipeline creation is finished
-	vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
+	//vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
 	vkDestroyShaderModule(logicalDevice, fragmentShaderModule, nullptr);
+	vkDestroyShaderModule(logicalDevice, meshShaderModule, nullptr);
+	vkDestroyShaderModule(logicalDevice, taskShaderModule, nullptr);
 }
 
 void Triangle::vertexBuffer_create(void)
