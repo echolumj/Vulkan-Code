@@ -23,9 +23,9 @@ layout(location = 0) out VertexOutput
 } vertexOutput[];
 
 const vec4[3] positions = {
-	vec4( 0.0, -1.0, 0.0, 1.0),
-	vec4(-1.0,  1.0, 0.0, 1.0),
-	vec4( 1.0,  1.0, 0.0, 1.0)
+	vec4( 0.0, -0.5, 0.0, 1.0),
+	vec4( 0.5,  0.5, 0.0, 1.0),
+	vec4(-0.5,  0.5, 0.0, 1.0)
 };
 
 const vec4[3] colors = {

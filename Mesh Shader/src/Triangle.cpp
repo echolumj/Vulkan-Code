@@ -126,12 +126,12 @@ void Triangle::vulkan_init(void)
 	commandPool_create();
 	commondBuffers_create();
 
-	createSSBO();
-	createCompDescSetLayout();
+	//createSSBO();
+	//createCompDescSetLayout();
 	vertexBuffer_create();
 	
 	graphicsPipline_create();
-	computePipeline_create();
+	//computePipeline_create();
 	framebuffer_create();
 	syncObjects_create();
 }
@@ -281,17 +281,17 @@ void Triangle::clean_up(void)
 		vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
 		vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
 
-		vkDestroyBuffer(logicalDevice, shaderStorageBuffer[i], nullptr);
-		vkFreeMemory(logicalDevice, shaderStorageBufferMem[i], nullptr);
+		//vkDestroyBuffer(logicalDevice, shaderStorageBuffer[i], nullptr);
+		//vkFreeMemory(logicalDevice, shaderStorageBufferMem[i], nullptr);
 	}
 	vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
 	vkFreeMemory(logicalDevice, vertexBufferMem, nullptr);
 
 	vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
 
-	vkDestroyDescriptorSetLayout(logicalDevice, computeDescSetLayout, nullptr);
-	vkDestroyPipeline(logicalDevice, compPipeline, nullptr);
-	vkDestroyPipelineLayout(logicalDevice, compPipelineLayout, nullptr);
+	//vkDestroyDescriptorSetLayout(logicalDevice, computeDescSetLayout, nullptr);
+	//vkDestroyPipeline(logicalDevice, compPipeline, nullptr);
+	//vkDestroyPipelineLayout(logicalDevice, compPipelineLayout, nullptr);
 		
 	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
@@ -323,7 +323,7 @@ void Triangle::instance_create(void)
 	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.pEngineName = "No Engine";
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.apiVersion = VK_API_VERSION_1_0;
+	appInfo.apiVersion = VK_API_VERSION_1_2;
 
 	VkInstanceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -434,7 +434,7 @@ QueueFamilyIndices Triangle::findQueueFamilies(VkPhysicalDevice devices)
 	{	
 		if (qfamily.queueCount <= 0) continue;
 		//队列支持图形处理命令
-		if ((qfamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (qfamily.queueFlags & VK_QUEUE_COMPUTE_BIT) && qfamily.queueCount > 0)
+		if ((qfamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) /* && (qfamily.queueFlags & VK_QUEUE_COMPUTE_BIT)*/ && qfamily.queueCount > 0)
 		{
 			indice.graphicAndComputeFamily = index;
 			indice.graphicsFamily = index;
@@ -565,7 +565,7 @@ void Triangle::logicalDevice_create(void)
 	}
 
 	vkGetDeviceQueue(logicalDevice, indice.graphicAndComputeFamily.value(), 0, &graphicsQueue);
-	vkGetDeviceQueue(logicalDevice, indice.graphicAndComputeFamily.value(), 0, &computeQueue);
+	//vkGetDeviceQueue(logicalDevice, indice.graphicAndComputeFamily.value(), 0, &computeQueue);
 	vkGetDeviceQueue(logicalDevice, indice.presentFamily.value(), 0, &presentQueue);
 
 	vkCmdDrawMeshTasksEXT = reinterpret_cast<PFN_vkCmdDrawMeshTasksEXT>(vkGetDeviceProcAddr(logicalDevice, "vkCmdDrawMeshTasksEXT"));
@@ -920,10 +920,10 @@ void Triangle::computePipeline_create(void)
 
 void Triangle::graphicsPipline_create(void)
 {
-	auto vertexShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/vert.spv");
-	auto fragShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/frag.spv");
-	auto meshShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/mesh.spv");
-	auto taskShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/task.spv");
+	auto vertexShaderCode = readFile("E:/lmj/personal/Vulkan-Code/Mesh Shader/src/spvs/vert.spv");
+	auto fragShaderCode = readFile("E:/lmj/personal/Vulkan-Code/Mesh Shader/src/spvs/frag.spv");
+	auto meshShaderCode = readFile("E:/lmj/personal/Vulkan-Code/Mesh Shader/src/spvs/mesh.spv");
+	auto taskShaderCode = readFile("E:/lmj/personal/Vulkan-Code/Mesh Shader/src/spvs/task.spv");
 
 	//VkShaderModule vertShaderModule = createShaderModule(vertexShaderCode);
 	VkShaderModule fragmentShaderModule = createShaderModule(fragShaderCode);
@@ -1166,9 +1166,6 @@ void Triangle::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 	//The second parameter specifies if the pipeline object is a graphics or compute pipeline. 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-	// Use mesh and task shader to draw the scene
-	vkCmdDrawMeshTasksEXT(commandBuffer, 1, 1, 1);
-
 	VkViewport viewport{};
 	viewport.x = 0.0f;
 	viewport.y = 0.0f;
@@ -1187,7 +1184,9 @@ void Triangle::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	//vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	// Use mesh and task shader to draw the scene
+	vkCmdDrawMeshTasksEXT(commandBuffer, 1, 1, 1);
 
 	vkCmdEndRenderPass(commandBuffer);
 
