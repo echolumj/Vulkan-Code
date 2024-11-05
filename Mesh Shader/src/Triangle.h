@@ -42,6 +42,17 @@ namespace compute
 
 }
 
+namespace meshShader
+{
+	struct Meshlet
+	{
+		uint32_t vertices[64];
+		uint32_t indices[126 * 3];
+		uint32_t indexCount;
+		uint32_t vertexCount;
+	};
+}
+
 namespace triangle
 {
 	struct Vertex {
@@ -157,6 +168,10 @@ private:
 
 	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
 	void DestoryDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+
+	//mesh shader
+	void LoadAssert(std::string filePath);
+	void loadglTFFile(std::string filePath);
 
 	//vertex input
 	VkBuffer vertexBuffer;
