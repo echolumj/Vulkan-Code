@@ -7,15 +7,42 @@
 #version 450
 #extension GL_EXT_mesh_shader : require
 
-layout (binding = 0) uniform UBO 
+layout (binding = 3) uniform UBO 
 {
 	mat4 projection;
 	mat4 model;
 	mat4 view;
 } ubo;
 
-layout(local_size_x = 2, local_size_y = 1, local_size_z = 1) in;
-layout(triangles, max_vertices = 3, max_primitives = 1) out;
+
+struct Vertex
+{
+	vec4 Position;
+	vec3 Normal;
+};
+
+struct Meshlet
+{
+	uint vertices[64];
+	uint indices[378]; // up to 42 triangles
+	uint indexCount;
+	uint vertexCount;
+};
+
+layout(binding = 1) readonly buffer Meshlets
+{
+	Meshlet meshlets[];
+}g_Meshlet;
+
+
+layout(binding = 0) readonly buffer Vertices
+{
+	Vertex vertices[];
+}g_Vertex;
+
+
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+layout(triangles, max_vertices = 64, max_primitives = 126) out;
 
 layout(location = 0) out VertexOutput
 {
@@ -34,20 +61,59 @@ const vec4[3] colors = {
 	vec4(1.0, 0.0, 0.0, 1.0)
 };
 
+
+uint hash(uint a)
+{
+   a = (a+0x7ed55d16) + (a<<12);
+   a = (a^0xc761c23c) ^ (a>>19);
+   a = (a+0x165667b1) + (a<<5);
+   a = (a+0xd3a2646c) ^ (a<<9);
+   a = (a+0xfd7046c5) + (a<<3);
+   a = (a^0xb55a4f09) ^ (a>>16);
+   return a;
+}
+
 void main()
 {
-	uint iid = gl_NumWorkGroups.y;
-	//gl_WorkGroupSize.x
-	vec4 offset = vec4(gl_LocalInvocationIndex / 3.0, gl_LocalInvocationID.z / 3.0, 0.0, 0.0);
+//	uint iid = gl_NumWorkGroups.y;
+//	//gl_WorkGroupSize.x
+//	vec4 offset = vec4(gl_LocalInvocationIndex / 3.0, gl_LocalInvocationID.z / 3.0, 0.0, 0.0);
+//
+//	SetMeshOutputsEXT(3, 1);
+//	//mat4 mvp = ubo.projection * ubo.view * ubo.model;
+//	gl_MeshVerticesEXT[0].gl_Position = (positions[0] + offset);
+//	gl_MeshVerticesEXT[1].gl_Position = (positions[1] + offset);
+//	gl_MeshVerticesEXT[2].gl_Position = (positions[2] + offset);
+//	vertexOutput[0].color = colors[0];
+//	vertexOutput[1].color = colors[1];
+//	vertexOutput[2].color = colors[2];
+//	//gl_LocalInvocationIndex = (gl_LocalInvocationID.z * gl_WorkGroupSize.x * gl_WorkGroupSize.y + gl_LocalInvocationID.y * gl_WorkGroupSize.x + gl_LocalInvocationID.x)
+//	gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex] =  uvec3(0, 1, 2);
 
-	SetMeshOutputsEXT(3, 1);
-	//mat4 mvp = ubo.projection * ubo.view * ubo.model;
-	gl_MeshVerticesEXT[0].gl_Position = (positions[0] + offset);
-	gl_MeshVerticesEXT[1].gl_Position = (positions[1] + offset);
-	gl_MeshVerticesEXT[2].gl_Position = (positions[2] + offset);
-	vertexOutput[0].color = colors[0];
-	vertexOutput[1].color = colors[1];
-	vertexOutput[2].color = colors[2];
-	//gl_LocalInvocationIndex = (gl_LocalInvocationID.z * gl_WorkGroupSize.x * gl_WorkGroupSize.y + gl_LocalInvocationID.y * gl_WorkGroupSize.x + gl_LocalInvocationID.x)
-	gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex] =  uvec3(0, 1, 2);
+	uint mi = gl_WorkGroupID.x;
+	uint ti = gl_LocalInvocationID.x;
+
+	uint mhash = hash(mi);
+	vec3 mcolor = vec3(float(mhash & 255), float((mhash >> 8) & 255), float((mhash >> 16) & 255)) / 255.0;
+
+	//===== Vertext Clip Position =====================
+	for (uint i = ti; i < uint(g_Meshlet.meshlets[mi].vertexCount); i = i+32)
+	{
+		uint vi = g_Meshlet.meshlets[mi].vertices[i];
+		vec3 pos = vec3(g_Vertex.vertices[vi].Position.xy, 0.0);
+
+		gl_MeshVerticesEXT[i].gl_Position =  vec4(pos, 1.0); //ubo.proj * ubo.view * ubo.model *
+
+		vertexOutput[i].color = vec4(mcolor, 1.0);
+	}
+
+	//===== Index =====================
+	for (uint i = ti; i < uint(g_Meshlet.meshlets[mi].indexCount);i = i+32)
+	{
+		gl_PrimitiveTriangleIndicesEXT[i] = uvec3(g_Meshlet.meshlets[mi].indices[i], g_Meshlet.meshlets[mi].indices[i+1], g_Meshlet.meshlets[mi].indices[i+2]);
+	}
+
+	//===== Primitive Count =====================	
+	//if (ti == 0)
+		//gl_PrimitiveCountNV = uint(g_Meshlet.meshlets[mi].indexCount) / 3;
 }

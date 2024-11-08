@@ -31,10 +31,10 @@ public:
 
 	// The vertex layout for the samples' model
 	struct Vertex {
-		glm::vec3 pos;
+		glm::vec4 pos;
 		glm::vec3 normal;
-		glm::vec2 uv;
-		glm::vec3 color;
+		//glm::vec2 uv;
+		//glm::vec3 color;
 	};
 
 	// Single vertex buffer for all primitives
@@ -113,10 +113,10 @@ public:
 			delete node;
 		}
 		// Release all Vulkan resources allocated for the model
-		vkDestroyBuffer(logicalDevice, vertices.buffer, nullptr);
-		vkFreeMemory(logicalDevice, vertices.memory, nullptr);
-		vkDestroyBuffer(logicalDevice, indices.buffer, nullptr);
-		vkFreeMemory(logicalDevice, indices.memory, nullptr);
+		//vkDestroyBuffer(logicalDevice, vertices.buffer, nullptr);
+		//vkFreeMemory(logicalDevice, vertices.memory, nullptr);
+		//vkDestroyBuffer(logicalDevice, indices.buffer, nullptr);
+		//vkFreeMemory(logicalDevice, indices.memory, nullptr);
 		//for (Image image : images) {
 		//	vkDestroyImageView(vulkanDevice->logicalDevice, image.texture.view, nullptr);
 		//	vkDestroyImage(vulkanDevice->logicalDevice, image.texture.image, nullptr);
@@ -192,7 +192,7 @@ public:
 		}
 	}
 
-	void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<VulkanglTFModel::Vertex>& vertexBuffer)
+	void loadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<meshShader::Vertex>& vertexBuffer)
 	{
 		VulkanglTFModel::Node* node = new VulkanglTFModel::Node{};
 		node->matrix = glm::mat4(1.0f);
@@ -261,11 +261,11 @@ public:
 
 					// Append data to model's vertex buffer
 					for (size_t v = 0; v < vertexCount; v++) {
-						Vertex vert{};
+						meshShader::Vertex vert{};
 						vert.pos = glm::vec4(glm::make_vec3(&positionBuffer[v * 3]), 1.0f);
 						vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
-						vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
-						vert.color = glm::vec3(1.0f);
+						//vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
+						//vert.color = glm::vec3(1.0f);
 						vertexBuffer.push_back(vert);
 					}
 				}
@@ -483,6 +483,8 @@ void Triangle::vulkan_init(void)
 	commandPool_create();
 	commondBuffers_create();
 
+	LoadAssert(RELATIVE_PATH + std::string("/src/chinesedragon.gltf"));
+
 	//createSSBO();
 	//createCompDescSetLayout();
 	vertexBuffer_create();
@@ -491,7 +493,6 @@ void Triangle::vulkan_init(void)
 	//computePipeline_create();
 	framebuffer_create();
 	syncObjects_create();
-	LoadAssert(RELATIVE_PATH + std::string("/src/chinesedragon.gltf"));
 }
 
 void Triangle::main_loop(void)
@@ -646,6 +647,17 @@ void Triangle::clean_up(void)
 	vkFreeMemory(logicalDevice, vertexBufferMem, nullptr);
 
 	vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
+
+	vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
+
+	if (ENABLE_MESH_SHADER)
+	{
+		vkDestroyDescriptorSetLayout(logicalDevice, meshDescSetLayout, nullptr);
+		vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
+		vkFreeMemory(logicalDevice, vertexBufferMem, nullptr);
+		vkDestroyBuffer(logicalDevice, meshletStorageBuffer, nullptr);
+		vkFreeMemory(logicalDevice, meshletStorageBufferMem, nullptr);
+	}
 
 	//vkDestroyDescriptorSetLayout(logicalDevice, computeDescSetLayout, nullptr);
 	//vkDestroyPipeline(logicalDevice, compPipeline, nullptr);
@@ -1171,6 +1183,109 @@ void Triangle::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize s
 	vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 }
 
+
+void Triangle::createMeshStorageBuffer(std::vector<meshShader::Vertex>& vertices, std::vector<meshShader::Meshlet>& meshlets)
+{
+	verticeStorageBufferSize = vertices.size() * sizeof(meshShader::Vertex);
+	meshletStorageBufferSize = meshlets.size() * sizeof(meshShader::Meshlet);
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMem;
+
+	//vertices
+	createBuffer(verticeStorageBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMem);
+
+	void* data;
+	vkMapMemory(logicalDevice, stagingBufferMem, 0, verticeStorageBufferSize, 0, &data);
+	memcpy(data, vertices.data(), (size_t)verticeStorageBufferSize);
+	vkUnmapMemory(logicalDevice, stagingBufferMem);
+
+	createBuffer(verticeStorageBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, verticeStorageBuffer, verticeStorageBufferMem);
+
+	copyBuffer(stagingBuffer, verticeStorageBuffer, verticeStorageBufferSize);
+
+	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(logicalDevice, stagingBufferMem, nullptr);
+
+	//meshlet
+	createBuffer(meshletStorageBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMem);
+
+	vkMapMemory(logicalDevice, stagingBufferMem, 0, meshletStorageBufferSize, 0, &data);
+	memcpy(data, meshlets.data(), (size_t)meshletStorageBufferSize);
+	vkUnmapMemory(logicalDevice, stagingBufferMem);
+
+	createBuffer(meshletStorageBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, meshletStorageBuffer, meshletStorageBufferMem);
+
+	copyBuffer(stagingBuffer, meshletStorageBuffer, meshletStorageBufferSize);
+
+	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(logicalDevice, stagingBufferMem, nullptr);
+}
+void Triangle::createMeshDescSetLayout(void)
+{
+	std::array<VkDescriptorSetLayoutBinding, 2> layoutBindings{};
+	layoutBindings[0].binding = 0;
+	layoutBindings[0].descriptorCount = 1;
+	layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	layoutBindings[0].pImmutableSamplers = nullptr;
+	layoutBindings[0].stageFlags = VK_SHADER_STAGE_MESH_BIT_NV;
+
+	layoutBindings[1].binding = 1;
+	layoutBindings[1].descriptorCount = 1;
+	layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	layoutBindings[1].pImmutableSamplers = nullptr;
+	layoutBindings[1].stageFlags = VK_SHADER_STAGE_MESH_BIT_NV;
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{};
+	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layoutInfo.bindingCount = 2;
+	layoutInfo.pBindings = layoutBindings.data();
+
+	if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &meshDescSetLayout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create mesh descriptor set layout!");
+	}
+
+	descriptorSets_create();
+
+	//Write
+	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+	{
+		VkDescriptorBufferInfo verticesBufferBufferInfo{};
+		verticesBufferBufferInfo.buffer = verticeStorageBuffer;
+		verticesBufferBufferInfo.offset = 0;
+		verticesBufferBufferInfo.range = verticeStorageBufferSize;
+
+		VkDescriptorBufferInfo meshBufferBufferInfo{};
+		meshBufferBufferInfo.buffer = meshletStorageBuffer;
+		meshBufferBufferInfo.offset = 0;
+		meshBufferBufferInfo.range = meshletStorageBufferSize;
+
+		std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+
+		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[0].dstSet = descriptorSets[i];
+		descriptorWrites[0].dstBinding = 0;
+		descriptorWrites[0].dstArrayElement = 0;
+		descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		descriptorWrites[0].descriptorCount = 1;
+		descriptorWrites[0].pBufferInfo = &verticesBufferBufferInfo;
+
+		descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[1].dstSet = descriptorSets[i];
+		descriptorWrites[1].dstBinding = 1;
+		descriptorWrites[1].dstArrayElement = 0;
+		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		descriptorWrites[1].descriptorCount = 1;
+		descriptorWrites[1].pBufferInfo = &meshBufferBufferInfo;
+
+		vkUpdateDescriptorSets(logicalDevice, 2, descriptorWrites.data(), 0, nullptr);
+	}
+}
+
 void Triangle::createSSBO(void)
 {
 	shaderStorageBufferSize = sizeof(compute::Particle) * PARTICLE_NUM;
@@ -1313,7 +1428,7 @@ void Triangle::graphicsPipline_create(void)
 	taskShaderStageInfo.pName = "main";
 
 	//step 1:prepare Shader Stage
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { meshShaderStageInfo, taskShaderStageInfo, fragShaderStageInfo };
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { meshShaderStageInfo, /*taskShaderStageInfo,*/ fragShaderStageInfo};
 	
 	//step 2:prepare Vertex Input State
 	auto bindingDesc = Vertex::getBindingDescription();
@@ -1399,9 +1514,11 @@ void Triangle::graphicsPipline_create(void)
 	dynamicState.pDynamicStates = dynamicStates;
 
 	//step 9:Pipeline layout 
+	std::vector<VkDescriptorSetLayout> layouts = { meshDescSetLayout };
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0;
+	pipelineLayoutInfo.setLayoutCount = layouts.size();
+	pipelineLayoutInfo.pSetLayouts = layouts.data();
 	pipelineLayoutInfo.pushConstantRangeCount = 0;
 
 	         
@@ -1495,6 +1612,40 @@ void Triangle::commandPool_create(void)
 
 }
 
+void Triangle::descriptorPool_create()
+{
+	//mesh shader: vertices+meshlet
+	VkDescriptorPoolSize poolSize{};
+	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
+
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+	if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create descriptor pool!");
+	}
+}
+
+void Triangle::descriptorSets_create()
+{
+	descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+	std::vector<VkDescriptorSetLayout> layouts = { meshDescSetLayout };
+
+	VkDescriptorSetAllocateInfo allocInfo{};
+	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	allocInfo.descriptorPool = descriptorPool;
+	allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+	allocInfo.pSetLayouts = layouts.data();
+
+	if (vkAllocateDescriptorSets(logicalDevice, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate descriptor sets!");
+	}
+}
+
 void Triangle::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
 	VkCommandBufferBeginInfo beginInfo{};
@@ -1544,7 +1695,8 @@ void Triangle::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 
 	//vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 	// Use mesh and task shader to draw the scene
-	vkCmdDrawMeshTasksEXT(commandBuffer, 1, 1, 1);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[0], 0, nullptr);
+	vkCmdDrawMeshTasksEXT(commandBuffer, uint32_t(meshlets.size()), 1, 1);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -1765,7 +1917,7 @@ void Triangle::loadglTFFile(std::string filePath)
 	glTFModel.copyQueue = graphicsQueue;
 
 	std::vector<uint32_t> indexBuffer;
-	std::vector<VulkanglTFModel::Vertex> vertexBuffer;
+	std::vector<meshShader::Vertex> vertexBuffer;
 
 	if (fileLoaded) {
 		//glTFModel.loadImages(glTFInput);
@@ -1786,8 +1938,8 @@ void Triangle::loadglTFFile(std::string filePath)
 	// We will be using one single vertex buffer and one single index buffer for the whole glTF scene
 	// Primitives (of the glTF model) will then index into these using index offsets
 
-	size_t vertexBufferSize = vertexBuffer.size() * sizeof(VulkanglTFModel::Vertex);
-	size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
+	//size_t vertexBufferSize = vertexBuffer.size();
+	size_t indexBufferSize = indexBuffer.size();
 	glTFModel.indices.count = static_cast<uint32_t>(indexBuffer.size());
 
 	struct StagingBuffer {
@@ -1797,7 +1949,7 @@ void Triangle::loadglTFFile(std::string filePath)
 
 	meshShader::Meshlet meshlet = {};
 
-	std::vector<uint8_t> meshletVertices(vertexBufferSize, 0xff);
+	std::vector<uint8_t> meshletVertices(vertexBuffer.size(), 0xff);
 
 	for (size_t i = 0; i < indexBufferSize; i += 3)
 	{
@@ -1809,7 +1961,7 @@ void Triangle::loadglTFFile(std::string filePath)
 		uint8_t& bv = meshletVertices[b];
 		uint8_t& cv = meshletVertices[c];
 
-		if (meshlet.vertexCount + (av == 0xff) + (bv == 0xff) + (cv == 0xff) > 64 || meshlet.indexCount + 3 > 126)
+		if (meshlet.vertexCount + (av == 0xff) + (bv == 0xff) + (cv == 0xff) > 64 || meshlet.indexCount + 3 > 126 * 3)
 		{
 			meshlets.emplace_back(meshlet);
 
@@ -1845,67 +1997,9 @@ void Triangle::loadglTFFile(std::string filePath)
 	if (meshlet.indexCount)
 		meshlets.push_back(meshlet);
 
-	//// Create host visible staging buffers (source)
-	//createBuffer(vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-	//	&vertexStaging.buffer, &vertexStaging.memory);
-	//VK_CHECK_RESULT(vulkanDevice->createBuffer(
-	//	VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-	//	vertexBufferSize,
-	//	&vertexStaging.buffer,
-	//	&vertexStaging.memory,
-	//	vertexBuffer.data()));
-	//// Index data
-	//VK_CHECK_RESULT(vulkanDevice->createBuffer(
-	//	VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-	//	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-	//	indexBufferSize,
-	//	&indexStaging.buffer,
-	//	&indexStaging.memory,
-	//	indexBuffer.data()));
-
-	//// Create device local buffers (target)
-	//VK_CHECK_RESULT(vulkanDevice->createBuffer(
-	//	VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-	//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-	//	vertexBufferSize,
-	//	&glTFModel.vertices.buffer,
-	//	&glTFModel.vertices.memory));
-	//VK_CHECK_RESULT(vulkanDevice->createBuffer(
-	//	VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-	//	VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-	//	indexBufferSize,
-	//	&glTFModel.indices.buffer,
-	//	&glTFModel.indices.memory));
-
-	//// Copy data from staging buffers (host) do device local buffer (gpu)
-	//VkCommandBuffer copyCmd = vulkanDevice->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-	//VkBufferCopy copyRegion = {};
-
-	//copyRegion.size = vertexBufferSize;
-	//vkCmdCopyBuffer(
-	//	copyCmd,
-	//	vertexStaging.buffer,
-	//	glTFModel.vertices.buffer,
-	//	1,
-	//	&copyRegion);
-
-	//copyRegion.size = indexBufferSize;
-	//vkCmdCopyBuffer(
-	//	copyCmd,
-	//	indexStaging.buffer,
-	//	glTFModel.indices.buffer,
-	//	1,
-	//	&copyRegion);
-
-	//vulkanDevice->flushCommandBuffer(copyCmd, queue, true);
-
-	//// Free staging resources
-	//vkDestroyBuffer(device, vertexStaging.buffer, nullptr);
-	//vkFreeMemory(device, vertexStaging.memory, nullptr);
-	//vkDestroyBuffer(device, indexStaging.buffer, nullptr);
-	//vkFreeMemory(device, indexStaging.memory, nullptr);
+	createMeshStorageBuffer(vertexBuffer, meshlets);
+	descriptorPool_create();
+	createMeshDescSetLayout();
 }
 
 void Triangle::LoadAssert(std::string filePath)

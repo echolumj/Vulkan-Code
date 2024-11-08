@@ -26,11 +26,12 @@
 #define ENABLE_MESH_SHADER 1
 
 const int PARTICLE_NUM = 2000;
-const int MAX_FRAMES_IN_FLIGHT = 2;
+const int MAX_FRAMES_IN_FLIGHT = 1;
 
 typedef glm::vec2 vec2;
 typedef glm::vec3 vec3;
 typedef glm::vec4 vec4;
+
 
 namespace compute
 {
@@ -50,6 +51,12 @@ namespace meshShader
 		uint32_t indices[126 * 3];
 		uint32_t indexCount;
 		uint32_t vertexCount;
+	};
+	struct Vertex {
+		glm::vec4 pos;
+		glm::vec3 normal;
+		//glm::vec2 uv;
+		//glm::vec3 color;
 	};
 }
 
@@ -138,15 +145,22 @@ private:
 	void vertexBuffer_create(void);
 	void commandPool_create(void);
 	void commondBuffers_create(void);
+	void descriptorPool_create(void);
+	void descriptorSets_create(void);
 	void syncObjects_create(void);
 	void swapCahin_recreate(void);
 
 	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 	void cleanupSwapChain(void);
 
+	//compute
 	void createSSBO(void);
 	void createCompDescSetLayout(void);
 	void computePipeline_create(void);
+
+	//mesh shader
+	void createMeshStorageBuffer(std::vector<meshShader::Vertex>& vertices, std::vector<meshShader::Meshlet>& meshlets);
+	void createMeshDescSetLayout(void);
 
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
@@ -202,6 +216,9 @@ private:
 	VkQueue presentQueue;
 	VkQueue computeQueue;
 
+	VkDescriptorPool descriptorPool;
+	std::vector<VkDescriptorSet> descriptorSets;
+
 	//GPU-GPU Synchronization
 	//VkSemaphore imageAvailableSemaphore;
 	//VkSemaphore renderFinishedSemaphore;
@@ -223,5 +240,12 @@ private:
 
 	//mesh shader
 	PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasksEXT = VK_NULL_HANDLE;
+	VkBuffer verticeStorageBuffer;
+	VkDeviceMemory verticeStorageBufferMem;
+	VkBuffer meshletStorageBuffer;
+	VkDeviceMemory meshletStorageBufferMem;
+	VkDeviceSize verticeStorageBufferSize;
+	VkDeviceSize meshletStorageBufferSize;
+	VkDescriptorSetLayout meshDescSetLayout;
 };
 
