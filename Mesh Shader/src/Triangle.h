@@ -62,6 +62,12 @@ namespace meshShader
 
 namespace triangle
 {
+	struct UniformBufferObject
+	{
+		glm::mat4 projection;
+		glm::mat4 model;
+		glm::mat4 view;
+	};
 	struct Vertex {
 		glm::vec2 pos;
 		glm::vec3 color;
@@ -247,5 +253,8 @@ private:
 	VkDeviceSize verticeStorageBufferSize;
 	VkDeviceSize meshletStorageBufferSize;
 	VkDescriptorSetLayout meshDescSetLayout;
+
+	VkBuffer uniformBuffer;
+	VkDeviceMemory uniformBufferMem;
 };
 

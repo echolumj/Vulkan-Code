@@ -1240,6 +1240,12 @@ void Triangle::createMeshDescSetLayout(void)
 	layoutBindings[1].pImmutableSamplers = nullptr;
 	layoutBindings[1].stageFlags = VK_SHADER_STAGE_MESH_BIT_NV;
 
+	//layoutBindings[2].binding = 2;
+	//layoutBindings[2].descriptorCount = 1;
+	//layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	//layoutBindings[2].pImmutableSamplers = nullptr;
+	//layoutBindings[2].stageFlags = VK_SHADER_STAGE_MESH_BIT_NV;
+
 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	layoutInfo.bindingCount = 2;
@@ -1281,6 +1287,14 @@ void Triangle::createMeshDescSetLayout(void)
 		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		descriptorWrites[1].descriptorCount = 1;
 		descriptorWrites[1].pBufferInfo = &meshBufferBufferInfo;
+
+		//descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		//descriptorWrites[2].dstSet = descriptorSets[i];
+		//descriptorWrites[2].dstBinding = 1;
+		//descriptorWrites[2].dstArrayElement = 0;
+		//descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		//descriptorWrites[2].descriptorCount = 1;
+		//descriptorWrites[2].pBufferInfo = &meshBufferBufferInfo;
 
 		vkUpdateDescriptorSets(logicalDevice, 2, descriptorWrites.data(), 0, nullptr);
 	}
@@ -1513,13 +1527,20 @@ void Triangle::graphicsPipline_create(void)
 	dynamicState.dynamicStateCount = 2;
 	dynamicState.pDynamicStates = dynamicStates;
 
+	//pushconstant 
+	VkPushConstantRange pushConstant = {};
+	pushConstant.offset = 0;
+	pushConstant.size = sizeof(UniformBufferObject);
+	pushConstant.stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
+
 	//step 9:Pipeline layout 
 	std::vector<VkDescriptorSetLayout> layouts = { meshDescSetLayout };
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipelineLayoutInfo.setLayoutCount = layouts.size();
 	pipelineLayoutInfo.pSetLayouts = layouts.data();
-	pipelineLayoutInfo.pushConstantRangeCount = 0;
+	pipelineLayoutInfo.pushConstantRangeCount = 1;
+	pipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 
 	         
 	if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, NULL, &pipelineLayout) != VK_SUCCESS)
@@ -1619,10 +1640,17 @@ void Triangle::descriptorPool_create()
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT) * 2;
 
+	//uniform buffer
+	//VkDescriptorPoolSize uboPoolSize{};
+	//uboPoolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	//uboPoolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+	std::vector<VkDescriptorPoolSize> poolSizes = { poolSize/*, uboPoolSize*/};
+
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = 1;
-	poolInfo.pPoolSizes = &poolSize;
+	poolInfo.poolSizeCount = poolSizes.size();
+	poolInfo.pPoolSizes = poolSizes.data();
 	poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
 	if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
@@ -1693,9 +1721,20 @@ void Triangle::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
+	UniformBufferObject ubo;
+	ubo.model = glm::mat4(1.0);
+	glm::vec3 front = glm::vec3(0.0f, 0.0f, 0.0f) - glm::vec3(10.0f, 0.0f, 10.0f);
+	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 left = glm::cross(front, up);
+	ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 10.0f),
+		glm::vec3(0.0f, 0.0f, 0.0f),
+		glm::normalize(glm::cross(front, left)));
+	ubo.projection = glm::perspective(float(glm::radians(60.0f)), 800.0f / 600.0f, 0.1f, 100.0f);
+
+	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_MESH_BIT_EXT, 0, sizeof(ubo), &ubo);
 	//vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 	// Use mesh and task shader to draw the scene
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[0], 0, nullptr);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 	vkCmdDrawMeshTasksEXT(commandBuffer, uint32_t(meshlets.size()), 1, 1);
 
 	vkCmdEndRenderPass(commandBuffer);
