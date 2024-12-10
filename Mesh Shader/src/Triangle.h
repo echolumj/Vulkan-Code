@@ -48,7 +48,7 @@ namespace meshShader
 	struct Meshlet
 	{
 		unsigned int vertices[64];
-		unsigned int indices[32*3];
+		unsigned int indices[126*3];
 		unsigned int indexCount = 0;
 		unsigned int vertexCount = 0;
 	};
@@ -172,6 +172,18 @@ private:
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
+	void createDepthResource(void);
+
+	bool hasStencilComponent(VkFormat format);
+
+	VkCommandBuffer beginSingleTimeCommands();
+	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	VkFormat findDepthFormat();
+	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectMask, VkImageView& imageView);
+	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+		VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	//////////////////////Auxiliary function///////////////////////////////////
 	std::vector<const char*> getRequiredExtensions(void);
 	bool CheckValidationLayerSupport(void);
@@ -256,5 +268,10 @@ private:
 
 	VkBuffer uniformBuffer;
 	VkDeviceMemory uniformBufferMem;
+
+	VkImage depthImage;
+	VkDeviceMemory depthImageMemory;
+	VkImageView depthImageView;
+	VkFormat depthImageFormat;
 };
 

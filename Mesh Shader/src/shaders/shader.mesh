@@ -24,7 +24,7 @@ struct Vertex
 struct Meshlet
 {
 	uint vertices[64];
-	uint indices[32*3]; // up to 126 triangles 126 * 3
+	uint indices[126*3]; // up to 126 triangles 126 * 3
 	uint indexCount;
 	uint vertexCount;
 };
@@ -42,7 +42,7 @@ layout(binding = 0) readonly buffer Vertices
 
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
-layout(triangles, max_vertices = 64, max_primitives = 128) out;
+layout(triangles, max_vertices = 64, max_primitives = 126) out;
 
 layout(location = 0) out VertexOutput
 {
@@ -84,9 +84,8 @@ void main()
 	for (uint i = 0; i < uint(g_Meshlet.meshlets[mi].vertexCount); i++)
 	{
 		uint vi = g_Meshlet.meshlets[mi].vertices[i];
-		//vec3 pos = vec3(g_Vertex.vertices[vi].Position.xy, 0.0);
 		vertexOutput[i].color = vec4(mcolor, 1.0);
-		gl_MeshVerticesEXT[i].gl_Position =  ubo.proj * ubo.view * ubo.model * g_Vertex.vertices[vi].Position; //ubo.proj * ubo.view * ubo.model *
+		gl_MeshVerticesEXT[i].gl_Position =  ubo.proj * ubo.view * ubo.model * g_Vertex.vertices[vi].Position;
 	}
 
 
