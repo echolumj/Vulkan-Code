@@ -20,8 +20,8 @@
 #include <glm/gtc/type_ptr.hpp>
 
 //the size of window
-#define   WIDTH   800
-#define   HEIGHT   600 
+#define   WIDTH   1200
+#define   HEIGHT   800 
 
 #define ENABLE_MESH_SHADER 1
 
@@ -47,14 +47,14 @@ namespace meshShader
 {
 	struct Meshlet
 	{
-		uint32_t vertices[64];
-		uint32_t indices[126 * 3];
-		uint32_t indexCount;
-		uint32_t vertexCount;
+		unsigned int vertices[64];
+		unsigned int indices[32*3];
+		unsigned int indexCount = 0;
+		unsigned int vertexCount = 0;
 	};
 	struct Vertex {
 		glm::vec4 pos;
-		glm::vec3 normal;
+		glm::vec4 normal;
 		//glm::vec2 uv;
 		//glm::vec3 color;
 	};

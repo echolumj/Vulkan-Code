@@ -263,7 +263,7 @@ public:
 					for (size_t v = 0; v < vertexCount; v++) {
 						meshShader::Vertex vert{};
 						vert.pos = glm::vec4(glm::make_vec3(&positionBuffer[v * 3]), 1.0f);
-						vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
+						vert.normal = glm::vec4(glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f))),0.0);
 						//vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
 						//vert.color = glm::vec3(1.0f);
 						vertexBuffer.push_back(vert);
@@ -400,6 +400,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 }
 
+
 //call back function
 //定义为静态函数，才可以做回调函数
 static void framebufferResizeCallback(GLFWwindow * window, int width, int height)
@@ -449,6 +450,37 @@ void Triangle::run(void)
 	clean_up();
 }
 
+glm::vec3 modelPosition = vec3(0.0,0.0,0.0);
+float rotationAngle = 0.0;
+
+// Callback function for keyboard events
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+		// Check for specific keys and set flags or directly apply transformations
+		switch (key) {
+		case GLFW_KEY_W: // Move forward
+			modelPosition.z -= 5.f;
+			break;
+		case GLFW_KEY_S: // Move backward
+			modelPosition.z += 5.f;
+			break;
+		case GLFW_KEY_A: // Move left
+			modelPosition.x -= 5.f;
+			break;
+		case GLFW_KEY_D: // Move right
+			modelPosition.x += 5.f;
+			break;
+		case GLFW_KEY_Q: // Rotate counterclockwise
+			rotationAngle += 0.01f;
+			break;
+		case GLFW_KEY_E: // Rotate clockwise
+			rotationAngle -= 0.01f;
+			break;
+			// Add more cases as needed
+		}
+	}
+}
+
 //private part
 void Triangle::window_init(void)
 {
@@ -457,6 +489,7 @@ void Triangle::window_init(void)
 	//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);//窗口大小不可变
 
 	window = glfwCreateWindow(WIDTH, HEIGHT, "vulkan", nullptr, nullptr);
+	glfwSetKeyCallback(window, key_callback);
 
 	//creat window fail
 	if (window == NULL)
@@ -483,7 +516,7 @@ void Triangle::vulkan_init(void)
 	commandPool_create();
 	commondBuffers_create();
 
-	LoadAssert(RELATIVE_PATH + std::string("/src/chinesedragon.gltf"));
+	LoadAssert(RELATIVE_PATH + std::string("/src/venus.gltf"));
 
 	//createSSBO();
 	//createCompDescSetLayout();
@@ -653,8 +686,8 @@ void Triangle::clean_up(void)
 	if (ENABLE_MESH_SHADER)
 	{
 		vkDestroyDescriptorSetLayout(logicalDevice, meshDescSetLayout, nullptr);
-		vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
-		vkFreeMemory(logicalDevice, vertexBufferMem, nullptr);
+		vkDestroyBuffer(logicalDevice, verticeStorageBuffer, nullptr);
+		vkFreeMemory(logicalDevice, verticeStorageBufferMem, nullptr);
 		vkDestroyBuffer(logicalDevice, meshletStorageBuffer, nullptr);
 		vkFreeMemory(logicalDevice, meshletStorageBufferMem, nullptr);
 	}
@@ -906,7 +939,7 @@ void Triangle::logicalDevice_create(void)
 	VkPhysicalDeviceMeshShaderFeaturesEXT enabledMeshShaderFeatures{};
 	enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
 	enabledMeshShaderFeatures.meshShader = VK_TRUE;
-	enabledMeshShaderFeatures.taskShader = VK_TRUE;
+	enabledMeshShaderFeatures.taskShader = VK_FALSE;
 
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1229,16 +1262,16 @@ void Triangle::createMeshDescSetLayout(void)
 {
 	std::array<VkDescriptorSetLayoutBinding, 2> layoutBindings{};
 	layoutBindings[0].binding = 0;
-	layoutBindings[0].descriptorCount = 1;
+	layoutBindings[0].descriptorCount = MAX_FRAMES_IN_FLIGHT;
 	layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	layoutBindings[0].pImmutableSamplers = nullptr;
-	layoutBindings[0].stageFlags = VK_SHADER_STAGE_MESH_BIT_NV;
+	layoutBindings[0].stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
 
 	layoutBindings[1].binding = 1;
-	layoutBindings[1].descriptorCount = 1;
+	layoutBindings[1].descriptorCount = MAX_FRAMES_IN_FLIGHT;
 	layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	layoutBindings[1].pImmutableSamplers = nullptr;
-	layoutBindings[1].stageFlags = VK_SHADER_STAGE_MESH_BIT_NV;
+	layoutBindings[1].stageFlags = VK_SHADER_STAGE_MESH_BIT_EXT;
 
 	//layoutBindings[2].binding = 2;
 	//layoutBindings[2].descriptorCount = 1;
@@ -1448,18 +1481,18 @@ void Triangle::graphicsPipline_create(void)
 	auto bindingDesc = Vertex::getBindingDescription();
 	auto attributeDesc = Vertex::getAttributeDescriptions();
 
-	//VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo{};
-	//vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	//vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
-	//vertexInputCreateInfo.pVertexBindingDescriptions = &bindingDesc;
-	//vertexInputCreateInfo.vertexAttributeDescriptionCount = 2;
-	//vertexInputCreateInfo.pVertexAttributeDescriptions = attributeDesc.data();
+	VkPipelineVertexInputStateCreateInfo vertexInputCreateInfo{};
+	vertexInputCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertexInputCreateInfo.vertexBindingDescriptionCount = 1;
+	vertexInputCreateInfo.pVertexBindingDescriptions = &bindingDesc;
+	vertexInputCreateInfo.vertexAttributeDescriptionCount = 2;
+	vertexInputCreateInfo.pVertexAttributeDescriptions = attributeDesc.data();
 
-	////step 3:input assembly 
-	//VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo{};
-	//inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	//inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	//inputAssemblyCreateInfo.primitiveRestartEnable = VK_FALSE;
+	//step 3:input assembly 
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo{};
+	inputAssemblyCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	inputAssemblyCreateInfo.primitiveRestartEnable = VK_FALSE;
 
 	//step 4:Viewports and scissors
 	VkViewport viewport{};
@@ -1488,8 +1521,8 @@ void Triangle::graphicsPipline_create(void)
 	rasterCreateInfo.rasterizerDiscardEnable = VK_FALSE;//★
 	rasterCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterCreateInfo.lineWidth = 1.0f;
-	rasterCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterCreateInfo.cullMode = VK_CULL_MODE_NONE;
+	rasterCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterCreateInfo.depthBiasEnable = VK_FALSE;
 
 	//step 5:Multisample 
@@ -1504,10 +1537,16 @@ void Triangle::graphicsPipline_create(void)
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 	colorBlendAttachment.blendEnable = VK_FALSE;
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+	colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;  // optional
+	colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;  // optional
+	colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // optional
+	colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;  // optional
 
 	VkPipelineColorBlendStateCreateInfo colorBlendState{};
 	colorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	colorBlendState.logicOpEnable = VK_FALSE;
+	colorBlendState.logicOpEnable = VK_TRUE;
 	colorBlendState.logicOp = VK_LOGIC_OP_COPY;
 	colorBlendState.attachmentCount = 1;
 	colorBlendState.pAttachments = &colorBlendAttachment;
@@ -1515,6 +1554,8 @@ void Triangle::graphicsPipline_create(void)
 	colorBlendState.blendConstants[1] = 0.0f;
 	colorBlendState.blendConstants[2] = 0.0f;
 	colorBlendState.blendConstants[3] = 0.0f;
+
+
 
 	//step 8:Dynamic state 
 	VkDynamicState dynamicStates[] = {
@@ -1552,8 +1593,8 @@ void Triangle::graphicsPipline_create(void)
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipelineInfo.stageCount = shaderStages.size();//可编程的stage number
 	pipelineInfo.pStages = shaderStages.data();
-	pipelineInfo.pVertexInputState = nullptr;//&vertexInputCreateInfo;
-	pipelineInfo.pInputAssemblyState = nullptr; //&inputAssemblyCreateInfo;
+	pipelineInfo.pVertexInputState = nullptr;// &vertexInputCreateInfo;
+	pipelineInfo.pInputAssemblyState = nullptr;// &inputAssemblyCreateInfo;
 	pipelineInfo.pViewportState = &viewportCreateInfo;
 	pipelineInfo.pRasterizationState = &rasterCreateInfo;
 	pipelineInfo.pMultisampleState = &multisampleCreateInfo;
@@ -1721,15 +1762,21 @@ void Triangle::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
+	glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 10.0f);
+	glm::vec3 focusPos = glm::vec3(0.0f, 0.0f, 0.0f);
+	glm::vec3 front = focusPos - cameraPos;
+	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 left = glm::cross(up, front);
+
 	UniformBufferObject ubo;
 	ubo.model = glm::mat4(1.0);
-	glm::vec3 front = glm::vec3(0.0f, 0.0f, 0.0f) - glm::vec3(10.0f, 0.0f, 10.0f);
-	glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec3 left = glm::cross(front, up);
-	ubo.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 10.0f),
-		glm::vec3(0.0f, 0.0f, 0.0f),
+	ubo.model = glm::rotate(ubo.model, rotationAngle, up); // Apply rotation
+	ubo.model = glm::translate(ubo.model, modelPosition); // Apply translation
+
+	ubo.view = glm::lookAt(cameraPos,
+		focusPos,
 		glm::normalize(glm::cross(front, left)));
-	ubo.projection = glm::perspective(float(glm::radians(60.0f)), 800.0f / 600.0f, 0.1f, 100.0f);
+	ubo.projection = glm::perspective(float(glm::radians(45.0f)), float(WIDTH) / HEIGHT, 0.1f, 500.0f);
 
 	vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_MESH_BIT_EXT, 0, sizeof(ubo), &ubo);
 	//vkCmdDraw(commandBuffer, 3, 1, 0, 0);
@@ -1956,7 +2003,7 @@ void Triangle::loadglTFFile(std::string filePath)
 	glTFModel.copyQueue = graphicsQueue;
 
 	std::vector<uint32_t> indexBuffer;
-	std::vector<meshShader::Vertex> vertexBuffer;
+	std::vector<meshShader::Vertex> vertices;
 
 	if (fileLoaded) {
 		//glTFModel.loadImages(glTFInput);
@@ -1965,7 +2012,7 @@ void Triangle::loadglTFFile(std::string filePath)
 		const tinygltf::Scene& scene = glTFInput.scenes[0];
 		for (size_t i = 0; i < scene.nodes.size(); i++) {
 			const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-			glTFModel.loadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
+			glTFModel.loadNode(node, glTFInput, nullptr, indexBuffer, vertices);
 		}
 	}
 	else {
@@ -1988,8 +2035,9 @@ void Triangle::loadglTFFile(std::string filePath)
 
 	meshShader::Meshlet meshlet = {};
 
-	std::vector<uint8_t> meshletVertices(vertexBuffer.size(), 0xff);
+	std::vector<uint8_t> meshletVertices(vertices.size(), 0xff);
 
+	bool flag = false;
 	for (size_t i = 0; i < indexBufferSize; i += 3)
 	{
 		unsigned int a = indexBuffer[i + 0];
@@ -2000,14 +2048,19 @@ void Triangle::loadglTFFile(std::string filePath)
 		uint8_t& bv = meshletVertices[b];
 		uint8_t& cv = meshletVertices[c];
 
-		if (meshlet.vertexCount + (av == 0xff) + (bv == 0xff) + (cv == 0xff) > 64 || meshlet.indexCount + 3 > 126 * 3)
+		if (meshlet.vertexCount + (av == 0xff) + (bv == 0xff) + (cv == 0xff) > 64 || meshlet.indexCount + 3 > 32 * 3)
 		{
+ 
 			meshlets.emplace_back(meshlet);
+			flag = true;
 
 			for (size_t j = 0; j < meshlet.vertexCount; ++j)
 				meshletVertices[meshlet.vertices[j]] = 0xff;
-
+										
 			meshlet = {};
+			//}
+			//else
+			//	break;
 		}
 
 		if (av == 0xff)
@@ -2034,9 +2087,9 @@ void Triangle::loadglTFFile(std::string filePath)
 	}
 
 	if (meshlet.indexCount)
-		meshlets.push_back(meshlet);
+		meshlets.emplace_back(meshlet);
 
-	createMeshStorageBuffer(vertexBuffer, meshlets);
+	createMeshStorageBuffer(vertices, meshlets);
 	descriptorPool_create();
 	createMeshDescSetLayout();
 }

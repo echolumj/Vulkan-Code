@@ -131,10 +131,6 @@ private:
 	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 	void cleanupSwapChain(void);
 
-	void createSSBO(void);
-	void createCompDescSetLayout(void);
-	void computePipeline_create(void);
-
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -194,14 +190,5 @@ private:
 	std::vector<VkFence> inFlightFences;
 	std::vector<VkFence> imagesInFlight; //image count
 	size_t currentFrame;
-
-	//compute shader
-	std::vector<VkBuffer> shaderStorageBuffer;
-	std::vector<VkDeviceMemory> shaderStorageBufferMem;
-	VkDeviceSize shaderStorageBufferSize;
-	VkDescriptorSetLayout computeDescSetLayout;
-
-	VkPipelineLayout compPipelineLayout;
-	VkPipeline compPipeline;
 };
 

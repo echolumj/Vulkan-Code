@@ -123,12 +123,9 @@ void Triangle::vulkan_init(void)
 	commandPool_create();
 	commondBuffers_create();
 
-	createSSBO();
-	createCompDescSetLayout();
 	vertexBuffer_create();
 	
 	graphicsPipline_create();
-	computePipeline_create();
 	framebuffer_create();
 	syncObjects_create();
 }
@@ -277,18 +274,11 @@ void Triangle::clean_up(void)
 		vkDestroySemaphore(logicalDevice, imageAvailableSemaphores[i], nullptr);
 		vkDestroySemaphore(logicalDevice, renderFinishedSemaphores[i], nullptr);
 		vkDestroyFence(logicalDevice, inFlightFences[i], nullptr);
-
-		vkDestroyBuffer(logicalDevice, shaderStorageBuffer[i], nullptr);
-		vkFreeMemory(logicalDevice, shaderStorageBufferMem[i], nullptr);
 	}
 	vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
 	vkFreeMemory(logicalDevice, vertexBufferMem, nullptr);
 
 	vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
-
-	vkDestroyDescriptorSetLayout(logicalDevice, computeDescSetLayout, nullptr);
-	vkDestroyPipeline(logicalDevice, compPipeline, nullptr);
-	vkDestroyPipelineLayout(logicalDevice, compPipelineLayout, nullptr);
 		
 	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
@@ -513,6 +503,33 @@ void Triangle::physicalDevice_pick(void)
 	{
 		throw std::runtime_error("no suitable device.");
 	}
+
+	//test code: tools
+	PFN_vkGetPhysicalDeviceToolPropertiesEXT vkGetPhysicalDeviceToolPropertiesEXT = NULL;
+	vkGetPhysicalDeviceToolPropertiesEXT = (PFN_vkGetPhysicalDeviceToolPropertiesEXT)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceToolPropertiesEXT");
+	if(vkGetPhysicalDeviceToolPropertiesEXT == NULL)
+		throw std::runtime_error("get instance function failed");
+
+	uint32_t toolCount = 0;
+	auto result = vkGetPhysicalDeviceToolPropertiesEXT(physicalDevice, &toolCount, nullptr);
+	if(toolCount <= 0 || result != VK_SUCCESS)
+		throw std::runtime_error("tool of physical device is none");
+
+	std::vector<VkPhysicalDeviceToolPropertiesEXT> tools(toolCount);
+	result = vkGetPhysicalDeviceToolPropertiesEXT(physicalDevice, &toolCount, tools.data());
+	if(result != VK_SUCCESS)
+		throw std::runtime_error("tool of physical device is none");
+
+	printf("Active tools:\n");
+	for (uint32_t i = 0; i < toolCount; i++) {
+		printf("Tool Name: %s\n", tools[i].name);
+		printf("Description: %s\n", tools[i].description);
+		printf("Tool Version: %s\n", tools[i].version);
+		printf("Purposes: %u\n", tools[i].purposes); // Use bitmask for purposes
+		printf("Layer Name: %s\n", tools[i].layer[0] ? tools[i].layer : "None");
+		printf("---------------------------------\n");
+	}
+
 }
 
 void Triangle::logicalDevice_create(void)
@@ -801,115 +818,10 @@ void Triangle::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize s
 	vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 }
 
-void Triangle::createSSBO(void)
-{
-	shaderStorageBufferSize = sizeof(compute::Particle) * PARTICLE_NUM;
-
-	// Initialize particles
-	std::default_random_engine rndEngine((unsigned)time(nullptr));
-	std::uniform_real_distribution<float> rndDist(0.0f, 1.0f);
-
-	std::vector<compute::Particle> particles(PARTICLE_NUM);
-	for (auto& particle : particles) {
-		float r = 0.25f * sqrt(rndDist(rndEngine));
-		float theta = rndDist(rndEngine) * 2 * 3.14159265358979323846;
-		float x = r * cos(theta) * HEIGHT / WIDTH;
-		float y = r * sin(theta);
-		particle.position = glm::vec2(x, y);
-		particle.velocity = glm::normalize(glm::vec2(x, y)) * 0.00025f;
-		particle.color = glm::vec4(rndDist(rndEngine), rndDist(rndEngine), rndDist(rndEngine), 1.0f);
-	}
-	
-	VkBuffer stagingBuffer;
-	VkDeviceMemory stagingBufferMem;
-
-	createBuffer(shaderStorageBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		stagingBuffer, stagingBufferMem);
-
-	void* data;
-	vkMapMemory(logicalDevice, stagingBufferMem, 0, shaderStorageBufferSize, 0, &data);
-	memcpy(data, particles.data(), (size_t)shaderStorageBufferSize);
-	vkUnmapMemory(logicalDevice, stagingBufferMem);
-
-	shaderStorageBuffer.resize(MAX_FRAMES_IN_FLIGHT);
-	shaderStorageBufferMem.resize(MAX_FRAMES_IN_FLIGHT);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-
-		//create vertex and SSBO buffer
-		createBuffer(shaderStorageBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-				VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shaderStorageBuffer[i], shaderStorageBufferMem[i]);
-
-		copyBuffer(stagingBuffer, shaderStorageBuffer[i], shaderStorageBufferSize);
-	}
-}
-
-void Triangle::createCompDescSetLayout(void)
-{
-	std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
-	layoutBindings[0].binding = 0;
-	layoutBindings[0].descriptorCount = 1;
-	layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	layoutBindings[0].pImmutableSamplers = nullptr;
-	layoutBindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-	layoutBindings[1].binding = 1;
-	layoutBindings[1].descriptorCount = 1;
-	layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	layoutBindings[1].pImmutableSamplers = nullptr;
-	layoutBindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-	layoutBindings[2].binding = 2;
-	layoutBindings[2].descriptorCount = 1;
-	layoutBindings[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	layoutBindings[2].pImmutableSamplers = nullptr;
-	layoutBindings[2].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-	VkDescriptorSetLayoutCreateInfo layoutInfo{};
-	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layoutInfo.bindingCount = 3;
-	layoutInfo.pBindings = layoutBindings.data();
-
-	if (vkCreateDescriptorSetLayout(logicalDevice, &layoutInfo, nullptr, &computeDescSetLayout) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create compute descriptor set layout!");
-	}
-}
-
-void Triangle::computePipeline_create(void)
-{
-	auto computeShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/comp.spv");
-
-	VkShaderModule computeShaderModule = createShaderModule(computeShaderCode);
-
-	VkPipelineShaderStageCreateInfo compShaderStageCreateInfo{};
-	compShaderStageCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	compShaderStageCreateInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-	compShaderStageCreateInfo.module = computeShaderModule;
-	compShaderStageCreateInfo.pName = "main";
-
-	VkPipelineLayoutCreateInfo compPipelineLayoutCreateInfo{};
-	compPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	compPipelineLayoutCreateInfo.setLayoutCount = 1;
-	compPipelineLayoutCreateInfo.pSetLayouts = &computeDescSetLayout;
-
-	if (vkCreatePipelineLayout(logicalDevice, &compPipelineLayoutCreateInfo, nullptr, &compPipelineLayout) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create compute pipeline layout!");
-	}
-
-	VkComputePipelineCreateInfo pipelineInfo{};
-	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-	pipelineInfo.layout = compPipelineLayout;
-	pipelineInfo.stage = compShaderStageCreateInfo;
-
-	if (vkCreateComputePipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &compPipeline) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create compute pipeline!");
-	}
-}
-
 void Triangle::graphicsPipline_create(void)
 {
-	auto vertexShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/vert.spv");
-	auto fragShaderCode = readFile("E:/2_GITHUB/Vulkan-Code/ComputeShader/src/spvs/frag.spv");
+	auto vertexShaderCode = readFile(RELATIVE_PATH + std::string("/src/spvs/vert.spv"));
+	auto fragShaderCode = readFile(RELATIVE_PATH + std::string("/src/spvs/frag.spv"));
 
 	VkShaderModule vertShaderModule = createShaderModule(vertexShaderCode);
 	VkShaderModule fragmentShaderModule = createShaderModule(fragShaderCode);

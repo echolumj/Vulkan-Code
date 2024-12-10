@@ -1,0 +1,10 @@
+diff a/Mesh Shader/src/Triangle.cpp b/Mesh Shader/src/Triangle.cpp	(rejected hunks)
+@@ -1521,7 +1521,7 @@
+ 	rasterCreateInfo.rasterizerDiscardEnable = VK_FALSE;//��
+ 	rasterCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+ 	rasterCreateInfo.lineWidth = 1.0f;
+-	rasterCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
++	rasterCreateInfo.cullMode = VK_CULL_MODE_NONE;
+ 	rasterCreateInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+ 	rasterCreateInfo.depthBiasEnable = VK_FALSE;
+ 
