@@ -943,12 +943,6 @@ void Triangle::logicalDevice_create(void)
 	//创建逻辑设备时，我们需要指明要使用物理设备所支持的特性中的哪一些特性
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 
-	//support mesh shader
-	VkPhysicalDeviceMeshShaderFeaturesEXT enabledMeshShaderFeatures{};
-	enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
-	enabledMeshShaderFeatures.meshShader = VK_TRUE;
-	enabledMeshShaderFeatures.taskShader = VK_FALSE;
-
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	createInfo.pEnabledFeatures = &deviceFeatures;
@@ -958,7 +952,17 @@ void Triangle::logicalDevice_create(void)
 	//在choose physical device 中已经检查过extension的支持
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(requireExtensions.size());//static_cast<uint32_t>(requireExtensions.size());
 	createInfo.ppEnabledExtensionNames = requireExtensions.data();
-	createInfo.pNext = &enabledMeshShaderFeatures; // mesh shader
+
+	if (ENABLE_MESH_SHADER)
+	{
+		//support mesh shader
+		VkPhysicalDeviceMeshShaderFeaturesEXT enabledMeshShaderFeatures{};
+		enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+		enabledMeshShaderFeatures.meshShader = VK_TRUE;
+		enabledMeshShaderFeatures.taskShader = VK_FALSE;
+
+		createInfo.pNext = &enabledMeshShaderFeatures; // mesh shader
+	}
 
 	if (enableValidationLayers)
 	{
@@ -2036,6 +2040,16 @@ SwapChainSupportDetails Triangle::querySwapChainSupport(VkPhysicalDevice device)
 
 	uint32_t formatCount;
 	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+
+	//test code
+	//VkPhysicalDeviceMeshShaderPropertiesEXT meshShaderProperties = {};
+	//meshShaderProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
+	//
+	//VkPhysicalDeviceProperties2 properties = {};
+	//properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	//properties.pNext = &meshShaderProperties;
+
+	//vkGetPhysicalDeviceProperties2(device, &properties);
 
 	if (formatCount != 0)
 	{
