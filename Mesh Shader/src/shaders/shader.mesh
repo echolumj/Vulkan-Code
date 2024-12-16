@@ -61,6 +61,12 @@ layout(location = 0) out VertexOutput
 //	vec4(1.0, 0.0, 0.0, 1.0)
 //};
 
+struct TaskPayload {
+    uint pWorkGroupID[32];    
+};
+
+taskPayloadSharedEXT TaskPayload payload;
+
 
 uint hash(uint a)
 {
@@ -73,10 +79,12 @@ uint hash(uint a)
    return a;
 }
 
+shared uint sharedint;
+
 void main()
 {
-	uint mi = gl_GlobalInvocationID.x;
-
+	uint mi = payload.pWorkGroupID[gl_WorkGroupID.x];//gl_GlobalInvocationID.x;
+	
 	uint mhash = hash(mi);
 	vec3 mcolor = vec3(float(mhash & 255), float((mhash >> 8) & 255), float((mhash >> 16) & 255)) / 255.0;
 

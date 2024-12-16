@@ -959,7 +959,7 @@ void Triangle::logicalDevice_create(void)
 		VkPhysicalDeviceMeshShaderFeaturesEXT enabledMeshShaderFeatures{};
 		enabledMeshShaderFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
 		enabledMeshShaderFeatures.meshShader = VK_TRUE;
-		enabledMeshShaderFeatures.taskShader = VK_FALSE;
+		enabledMeshShaderFeatures.taskShader = VK_TRUE;
 
 		createInfo.pNext = &enabledMeshShaderFeatures; // mesh shader
 	}
@@ -1670,7 +1670,7 @@ void Triangle::graphicsPipline_create(void)
 	taskShaderStageInfo.pName = "main";
 
 	//step 1:prepare Shader Stage
-	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { meshShaderStageInfo, /*taskShaderStageInfo,*/ fragShaderStageInfo};
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages = { taskShaderStageInfo, meshShaderStageInfo, /*taskShaderStageInfo,*/ fragShaderStageInfo};
 	
 	//step 2:prepare Vertex Input State
 	auto bindingDesc = Vertex::getBindingDescription();
@@ -1976,7 +1976,7 @@ void Triangle::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 	//vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 	// Use mesh and task shader to draw the scene
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-	vkCmdDrawMeshTasksEXT(commandBuffer, uint32_t(meshlets.size()), 1, 1);
+	vkCmdDrawMeshTasksEXT(commandBuffer, uint32_t(meshlets.size()) / 32, 1, 1);
 
 	vkCmdEndRenderPass(commandBuffer);
 

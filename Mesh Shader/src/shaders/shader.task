@@ -7,7 +7,26 @@
 #version 450
 #extension GL_EXT_mesh_shader : require
 
+layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+
+struct TaskPayload {
+    uint pWorkGroupID[32];    
+};
+
+taskPayloadSharedEXT TaskPayload payload;
+ 
+ shared uint sharedint;
+
 void main()
 {
-	EmitMeshTasksEXT(1, 1, 1);
+    sharedint = 0;
+    barrier();
+
+    uint index = atomicAdd(sharedint,1);
+
+    payload.pWorkGroupID[index] = gl_WorkGroupID.x * 32 + gl_LocalInvocationID.x;
+
+    barrier();
+	EmitMeshTasksEXT(32, 1, 1);
+
 }
